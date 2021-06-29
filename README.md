@@ -1,27 +1,23 @@
-# caps2esc
+Forked from [caps2esc](https://gitlab.com/interception/linux/plugins/caps2esc)
+to restrict the use of CAPSLOCK as ESC only (and not as CTRL).
+Also this version only focuses on 60% layout so that:
+- caps act as esc
+- esc act as grave accent
+- grave accent act as caps
 
+# caps2esc
 _Transforming the most useless key **ever** in the most useful one._
 <sub>_For vi/Vim/NeoVim addicts at least_.</sub>
 
-# WARNING
-
-**The project now lives on https://gitlab.com/interception/linux/plugins/caps2esc
-as an [Interception Tools][interception-tools] plugin. This repository is now
-frozen.**
-
----
-
 <a href="http://www.catonmat.net/blog/why-vim-uses-hjkl-as-arrow-keys/">
-
-![ADM-3A terminal](http://www.catonmat.net/images/why-vim-uses-hjkl/lsi-adm3a-full-keyboard.jpg)
-
+    <img src="http://www.catonmat.net/images/why-vim-uses-hjkl/lsi-adm3a-full-keyboard.jpg" alt="ADM-3A terminal">
 </a>
 
 ## What is it?
 
-- **Put what's useless in its place**  
+- **Put what's useless in its place**
   <sub>_By moving the CAPSLOCK function to the far ESC location_</sub>
-- **Make what's useful comfortably present, just below your Pinky**  
+- **Make what's useful comfortably present, just below your Pinky**
   <sub>_By moving both ESC and CTRL functions to the CAPSLOCK location_</sub>
 
 ## Why?!
@@ -31,46 +27,101 @@ ESC when pressed alone is quite handy, specially in vi.
 
 ## Dependencies
 
-- [libevdev][]
+- [Interception Tools][interception-tools]
 
 ## Building
 
-`gcc caps2esc.c -o caps2esc -I/usr/include/libevdev-1.0 -levdev -ludev`
+```
+$ git clone https://gitlab.com/interception/linux/plugins/caps2esc.git
+$ cd caps2esc
+$ cmake -B build -DCMAKE_BUILD_TYPE=Release
+$ cmake --build build
+```
 
 ## Execution
 
-The following daemonized sample execution increases the application priority
-(since it'll be responsible for a vital input device, just to make sure it stays
-responsible):
+```
+caps2esc - transforming the most useless key ever in the most useful one
 
-`sudo nice -n -20 ./caps2esc >caps2esc.log 2>caps2esc.err &`
+usage: caps2esc [-h | [-m mode] [-t delay]]
+
+options:
+    -h        show this message and exit
+    -t        delay used for key sequences (default: 20000 microseconds)
+    -m mode   0: default
+                 - caps as esc/ctrl
+                 - esc as caps
+              1: minimal
+                 - caps as esc/ctrl
+              2: useful on 60% layouts
+                 - caps as esc/ctrl
+                 - esc as grave accent
+                 - grave accent as caps
+```
+
+`caps2esc` is an [_Interception Tools_][interception-tools] plugin. A suggested
+`udevmon` job configuration (check the [_Interception Tools_
+README][interception-tools] for alternatives) is:
+
+```yaml
+- JOB: intercept -g $DEVNODE | caps2esc | uinput -d $DEVNODE
+  DEVICE:
+    EVENTS:
+      EV_KEY: [KEY_CAPSLOCK, KEY_ESC]
+```
+
+For more information about the [_Interception Tools_][interception-tools], check
+the project's website.
+
+## Mouse/Touchpad Support
+
+After _Interception Tools_ 0.3.2, `caps2esc` can observe (or replace) mouse
+events. An example configuration taken from my laptop:
+
+```yaml
+SHELL: [zsh, -c]
+---
+- CMD: mux -c caps2esc
+- JOB: mux -i caps2esc | caps2esc | uinput -c /etc/interception/keyboard.yaml
+- JOB: intercept -g $DEVNODE | mux -o caps2esc
+  DEVICE:
+    LINK: /dev/input/by-path/platform-i8042-serio-0-event-kbd
+- JOB: intercept $DEVNODE | mux -o caps2esc
+  DEVICE:
+    LINK: /dev/input/by-path/platform-i8042-serio-4-event-mouse
+```
+
+For more information on the topic, check the [_Interception Tools_
+README][interception-tools] about usage of the `mux` tool and hybrid virtual
+device configurations.
 
 ## Installation
 
-I'm maintaining an Archlinux package on AUR:
+### Archlinux
 
-- <https://aur.archlinux.org/packages/caps2esc>
+It's available from [community](https://archlinux.org/packages/community/x86_64/interception-caps2esc/):
 
-It wraps the executable in a systemd service that can be easily started, stopped
-and enabled to execute on boot.
+```
+$ pacman -S interception-caps2esc
+```
 
-## How it works
+### Ubuntu ([independent package][ubuntu])
 
-Executing `caps2esc` without parameters (with the necessary privileges to access
-input devices) will make it monitor any devices connected (or that gets
-connected) that produces CAPSLOCK or ESC events.
+```
+sudo add-apt-repository ppa:deafmute/interception
+sudo apt install interception-caps2esc
+```
 
-Upon detection it will fork and exec itself now passing the path of the detected
-device as its first parameter. This child instance is then responsible for
-producing an uinput clone of such device and doing the programmatic keymapping
-of such device until it disconnects, at which time it ends its execution.
+<sub>For debian and other derivatives you can download directly at https://launchpad.net/~deafmute/+archive/ubuntu/interception/+packages.</sub>
+
+[ubuntu]: https://gitlab.com/interception/linux/tools/-/issues/38
 
 ## Caveats
 
 As always, there's always a caveat:
 
-- It will "grab" the detected devices for itself.
-- If you tweak your key repeat settings, check whether they get reset.  
+- `intercept -g` will "grab" the detected devices for exclusive access.
+- If you tweak your key repeat settings, check whether they get reset.
   Please check [this report][key-repeat-fix] about the resolution.
 
 ## History
@@ -78,7 +129,7 @@ As always, there's always a caveat:
 I can't recall when I started using CAPSLOCK as both ESC and CTRL but it has
 been quite some time already. It started when I was on OS X where it was quite
 easy to achieve using the [Karabiner][], which already provides an option to
-turn CTRL into CTRL/ESC (which can be coupled with OS X system settings that
+turn CTRL into ESC/CTRL (which can be coupled with OS X system settings that
 turn CAPSLOCK into CTRL).
 
 Moving on, permanently making Linux my home, I searched and tweaked a similar
@@ -99,24 +150,21 @@ Meanwhile on Windows land, I had a definitive solution based on my
 
 It made me envy enough, so I ported the
 [Windows Interception caps2esc][caps2esc-windows] sample to Linux based upon
-evdev, udev and uinput.
+the [_Interception Tools_][interception-tools].
 
 ## License
 
-<a href="http://www.gnu.org/copyleft/gpl.html">
-
-![GPL v3](https://www.gnu.org/graphics/gplv3-127x51.png)
-
+<a href="https://gitlab.com/interception/linux/plugins/caps2esc/blob/master/LICENSE.md">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/License_icon-mit-2.svg/120px-License_icon-mit-2.svg.png" alt="MIT">
 </a>
 
-Copyright © 2016 Francisco Lopes da Silva.
+Copyright © 2017 Francisco Lopes da Silva
 
 [caps2esc-windows]: https://github.com/oblitum/Interception/blob/master/samples/caps2esc/caps2esc.cpp
-[libevdev]: https://www.freedesktop.org/software/libevdev/doc/latest/index.html
 [karabiner]: https://pqrs.org/osx/karabiner/
 [xmodmap]: https://www.x.org/releases/X11R7.7/doc/man/man1/xmodmap.1.xhtml
 [xcape]: https://github.com/alols/xcape
 [x]: https://www.x.org
 [interception]: https://github.com/oblitum/Interception
-[key-repeat-fix]: https://github.com/oblitum/caps2esc/issues/1
 [interception-tools]: https://gitlab.com/interception/linux/tools
+[key-repeat-fix]: https://github.com/oblitum/caps2esc/issues/1
